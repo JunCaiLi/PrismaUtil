@@ -1,21 +1,43 @@
-const { Prisma, PrismaClient } = require('@prisma/client');
+const {Prisma} = require('@prisma/client');
+
 class SqlUtil {
   /**
-   * @param {num} pageNumber 
-   * @param {num} pageSize 
-   * @param {object} conditions 
+   * @param {num} pageNumber
+   * @param {num} pageSize
+   * @param {object} conditions
    * @param {Prisma.CompaniesDelegate<ExtArgs>} collection
-   * @param {object} orderByField 
-   * @param {[]} rangeField 
-   * @param {string []} ListField 
-   * @param {string []} addressField 
-   * @param {function} onDataProcess 
-   * @returns 
+   * @param {object} orderByField
+   * @param {[]} rangeField
+   * @param {string []} ListField
+   * @param {string []} addressField
+   * @param {string []} logicAndListField
+   * @param {string []} searchField
+   * @param {function} onDataProcess
+   * @returns
    */
-  async fetchDataWithPagination(pageNumber, pageSize, conditions, collection, orderByField, rangeField, ListField, addressField, onDataProcess) {
-    const { take, skip } = this.getPagination(pageNumber, pageSize);
+  async fetchDataWithPagination(
+    pageNumber,
+    pageSize,
+    conditions,
+    collection,
+    orderByField,
+    rangeField,
+    ListField,
+    addressField,
+    logicAndListField,
+    searchField,
+    onDataProcess,
+  ) {
+    const {take, skip} = this.getPagination(pageNumber, pageSize);
 
-    const query = await this.handleConditions(conditions, rangeField, ListField, addressField);
+    const query = await this.handleConditions(
+      conditions,
+      rangeField,
+      ListField,
+      addressField,
+      logicAndListField,
+      searchField,
+    );
     const data = await collection.findMany({
       where: query,
       orderBy: orderByField,
@@ -23,7 +45,7 @@ class SqlUtil {
       skip,
     });
 
-    const totalCount = await collection.count({ where: query });
+    const totalCount = await collection.count({where: query});
     const totalPages = Math.ceil(totalCount / pageSize);
 
     const result = onDataProcess?.(data) ?? data;
@@ -38,20 +60,20 @@ class SqlUtil {
 
   /**
    * create data
-   * @param {Prisma} prisma 
-   * @param {Prisma.CompaniesDelegate<ExtArgs>} collection 
-   * @param {object} data 
-   * @returns 
+   * @param {Prisma} prisma
+   * @param {Prisma.CompaniesDelegate<ExtArgs>} collection
+   * @param {object} data
+   * @returns
    */
   async createData(prisma, collection, data) {
     try {
       const newData = await collection.create({
         data: data,
       });
-      return { success: true, data: newData };
+      return {success: true, data: newData};
     } catch (error) {
       console.error('Error creating data:', error);
-      return { success: false, error: 'Error creating data' };
+      return {success: false, error: 'Error creating data'};
     } finally {
       await prisma.$disconnect();
     }
@@ -63,10 +85,10 @@ class SqlUtil {
       await collection.createMany({
         data: listData,
       });
-      return { success: true };
+      return {success: true};
     } catch (error) {
       console.error('Error creating users:', error);
-      return { success: false, error: 'Error creating data' };
+      return {success: false, error: 'Error creating data'};
     } finally {
       // Close the Prisma client connection
       await prisma.$disconnect();
@@ -76,21 +98,21 @@ class SqlUtil {
 
   /**
    * Physical deletion
-   * @param {Prisma} prisma 
-   * @param {*} collection 
-   * @param {*} id 
-   * @returns 
+   * @param {Prisma} prisma
+   * @param {*} collection
+   * @param {*} id
+   * @returns
    */
   async deleteData(prisma, collection, id) {
     try {
       await collection.delete({
-        where: { id },
+        where: {id},
       });
 
-      return { success: true };
+      return {success: true};
     } catch (error) {
       console.error('Error deleting data:', error);
-      return { success: false, error: 'Error deleting data' };
+      return {success: false, error: 'Error deleting data'};
     } finally {
       await prisma.$disconnect();
     }
@@ -98,10 +120,10 @@ class SqlUtil {
 
   /**
    * update collection
-   * @param {Prisma} prisma 
-   * @param {Prisma.CompaniesDelegate<ExtArgs>} collection 
-   * @param {object} dataToUpdate 
-   * @param {string} id 
+   * @param {Prisma} prisma
+   * @param {Prisma.CompaniesDelegate<ExtArgs>} collection
+   * @param {object} dataToUpdate
+   * @param {string} id
    * @returns {object}
    */
   async updateFields(prisma, collection, dataToUpdate, id) {
@@ -113,10 +135,10 @@ class SqlUtil {
         },
         data: dataToUpdate,
       });
-      return { success: true };
+      return {success: true};
     } catch (error) {
       console.error(error);
-      return { success: false };
+      return {success: false};
     } finally {
       // disconnect the Prisma client
       await prisma.$disconnect();
@@ -124,67 +146,58 @@ class SqlUtil {
   }
 
   /**
-   * @param {number} pageNumber 
-   * @param {number} pageSize 
-   * @returns 
+   * @param {number} pageNumber
+   * @param {number} pageSize
+   * @returns
    */
   getPagination(pageNumber, pageSize) {
     const page = pageNumber || 1;
     const limit = pageSize || 20;
     const skip = (page - 1) * limit;
     const take = limit;
-    return { take, skip };
+    return {take, skip};
   }
 
   /**
-   * 
-   * @param {{}} conditions 
-   * @param {[]} rangeField 
-   * @param {string []} ListField 
-   * @param {string []} addressField 
-   * @returns 
+   *
+   * @param {{}} conditions
+   * @param {[]} rangeField
+   * @param {string []} ListField
+   * @param {string []} addressField
+   * @param {string []} logicAndListField
+   * @param {string []} searchField
+   * @returns
    */
-  async handleConditions(conditions, rangeField, ListField, addressField) {
+  async handleConditions(
+    conditions,
+    rangeField,
+    ListField,
+    addressField,
+    logicAndListField,
+    searchField,
+  ) {
     const where = {};
     for (const key in conditions) {
       if (Object.prototype.hasOwnProperty.call(conditions, key)) {
         const value = conditions[key];
         if (addressField.includes(key)) {
-          let addressFilter = [];
-          // The key must be add quotes
-          // {"city": "San Jose", "country": "United States", "province": "California"}
-          for (let i = 0; i < value.length; i++) {
-            const address = value[i];
-            // city
-            if (address['city']) {
-              addressFilter.push({
-                [key]: {
-                  path: ['city'],
-                  equals: address.city
-                }
-              })
-            }
-            // country
-            if (address['country']) {
-              addressFilter.push({
+          // Prisma sentence OR/AND, OR as ||, AND as &&
+          where['OR'] = value.map((param) => {
+            let result = this.removeNullValues(param);
+            if (param.country && !param.province && !param.city) {
+              return {
                 [key]: {
                   path: ['country'],
-                  equals: address.country
+                  equals: param.country
                 }
-              })
+              }
             }
-            // province
-            if (address['province']) {
-              addressFilter.push({
-                [key]: {
-                  path: ['province'],
-                  equals: address.province
-                }
-              })
+            return {
+              [key]: {
+                equals: result, // match all JSON object
+              },
             }
-          }
-          // Prisma sentence OR/AND, OR like ||, AND like &&
-          where['OR'] = addressFilter
+          });
         } else if (Array.isArray(value)) {
           // if rangeField is DateTime, value's type is string and must be ISO8601String  e.g.: 1969-07-20T20:18:04.000Z
           if (rangeField.includes(key)) {
@@ -193,15 +206,23 @@ class SqlUtil {
               lte: value[1],
             };
           }
-          else if (ListField.includes(key)) {
-            where[key] = { hasSome: value };
-          }
-          else {
+          // when value is array, it means logic AND
+          else if (logicAndListField.includes(key)) {
+            where[key] = {hasEvery: value};
+          } else if (ListField.includes(key)) {
+            where[key] = {hasSome: value};
+          } else {
             // for database field not array type, but use array search
-            where[key] = { in: value };
+            where[key] = {in: value};
           }
         } else {
-          where[key] = { equals: value };
+          if (searchField.includes(key)) {
+            // partial match
+            where[key] = {contains: value}
+          } else {
+            // full equals
+            where[key] = {equals: value};
+          }
         }
       }
     }
@@ -209,22 +230,68 @@ class SqlUtil {
   }
 
   /**
-   * @param {string || {}} input 
-   * @returns 
+   * 校验查询逻辑，仅支持prisma支持逻辑
+   * @param {*} data
+   * @param {{
+   *   allFields?: string[],
+   * }}options
+   * @return {{[p: string]: *}}
+   */
+  checkConditions(data, options) {
+    const allFields = [...(options.allFields ?? []), 'AND', 'OR', 'NOT'];
+
+    const result = Reflect.ownKeys(data).map((k) => `${k}`);
+
+    return result.every((k) => allFields.includes(k));
+  }
+
+  /**
+   * data transform
+   * @param {*} data
+   * @param {{
+   *   dateFields?: string[];
+   *   allFields?: string[],
+   * }}options
+   * @return {{[p: string]: *}}
+   */
+  transformData(data, options) {
+    const {dateFields = [], allFields = []} = options ?? {};
+
+    const result = {...data};
+
+    for (const key in result) {
+      // remove field when key not contain in the map
+      if (!allFields.includes(key)) {
+        delete result[key];
+      }
+      // remove empty field
+      const val = result[key];
+      if (val === null || val === undefined) {
+        delete result[key];
+      }
+      // handle Date Time
+      if (dateFields.includes(key)) {
+        result[key] = this.toSQLDateTime(result[key]);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * @param {string || {}} input
+   * @returns
    */
   toSQLDateTime(input) {
     if (typeof input === "string") {
       const timestamp = Date.parse(input);
       if (!isNaN(timestamp)) {
-        const date = new Date(timestamp);
-        return date;
+        return new Date(timestamp);
       } else {
         return null;
       }
     } else if (typeof input === "object" && input !== null && "_seconds" in input) {
       const seconds = input['_seconds'];
-      const date = new Date(seconds * 1000);
-      return date;
+      return new Date(seconds * 1000);
     } else {
       return null
     }
@@ -232,7 +299,7 @@ class SqlUtil {
 
   /**
    * handle insert into fields
-   * @param {number} length 
+   * @param {number} length
    * @returns {string} VALUES($1, $2, $3)
    */
   generateValuesClause(length) {
@@ -240,11 +307,27 @@ class SqlUtil {
       return '';
     }
 
-    const values = Array.from({ length }, (_, index) => `$${index + 1}`).join(', ');
+    const values = Array.from({length}, (_, index) => `$${index + 1}`).join(', ');
     return `VALUES(${values})`;
   }
-}
 
+  /**
+   * removeNullValues
+   * @param {*} obj
+   * @returns
+   */
+  removeNullValues(obj) {
+    const newObj = {};
+
+    Object.keys(obj).forEach(key => {
+      if (obj[key] !== null) {
+        newObj[key] = obj[key];
+      }
+    });
+
+    return newObj;
+  }
+}
 
 
 module.exports = new SqlUtil();
